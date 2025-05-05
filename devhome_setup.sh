@@ -1,36 +1,24 @@
 #!/bin/bash
 
-# This script sets up a command (devhome) to easily cd into a base directory
-# for your coding projects without specifying the whole path to it each time. When
-# using devhome, you can include an extra argument for the name of a particular
-# project within that base dir to navigate to it directly.
+# This script sets up a command (devhome) to easily cd into the base directory
+# of your coding projects without specifying the whole path each time.
 
-if [ -n "$BASH_VERSION" ]; then
-    SHELL_RC="$HOME/.bashrc"
-elif [ -n "$ZSH_VERSION" ]; then
-    SHELL_RC="$HOME/.zshrc"
-else
-    echo "Unsupported shell. Please manually add the function to your shell config."
-    exit 1
-fi
+# When using devhome, you can include an extra argument for the name of a
+# particular project within that base dir to navigate to it directly.
 
-# check if devhome function already exists:
-if grep -q "devhome()" "$SHELL_RC"; then
-    echo "Function 'devhome' already defined in $SHELL_RC"
-    exit 0
-fi
+BASH_RC="$HOME/.bashrc"
+ZSH_RC="$HOME/.zshrc"
+BASH_PROFILE="$HOME/.bash_profile"
 
-# append the function to the shell config file:
-cat >> "$SHELL_RC" << 'EOF'
+# function body for devhome (as a variable to reuse):
+DEVHOME_FUNC=$(cat << 'EOF'
 
 # Added by devhome setup
 
 devhome() {
-    # resolve the function file location:
     local script_dir_path="${BASH_SOURCE[0]:-${(%):-%x}}"
     script_dir_path="$(cd "$(dirname "$script_dir_path")" && pwd)"
 
-    # ensure DEV_PROJECTS_ROOT is set:
     if [ -z "$DEV_PROJECTS_ROOT" ]; then
         local default_dir="$HOME/Documents/Projects"
         echo "Environment variable DEV_PROJECTS_ROOT not found"
@@ -44,27 +32,20 @@ devhome() {
         fi
 
         echo "Exporting DEV_PROJECTS_ROOT for future sessions..."
-        local shell_rc=""
-        if [ -n "$BASH_VERSION" ]; then
-            shell_rc="$HOME/.bashrc"
-        elif [ -n "$ZSH_VERSION" ]; then
-            shell_rc="$HOME/.zshrc"
-        fi
-
-        if [ -n "$shell_rc" ]; then
+        for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
             echo "" >> "$shell_rc"
             echo "# Set by devhome function" >> "$shell_rc"
             echo "export DEV_PROJECTS_ROOT=\"$DEV_PROJECTS_ROOT\"" >> "$shell_rc"
-        fi
+        done
     fi
 
-    # add script dir to PATH if needed:
     if [[ ":$PATH:" != *":$script_dir_path:"* ]]; then
         echo "Adding $script_dir_path to PATH..."
-        echo "export PATH=\"\$PATH:$script_dir_path\"" >> "$shell_rc"
+        for shell_rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+            echo "export PATH=\"\$PATH:$script_dir_path\"" >> "$shell_rc"
+        done
     fi
 
-    # navigate to project:
     local project_name="$1"
     local target_dir="$DEV_PROJECTS_ROOT"
 
@@ -85,7 +66,29 @@ devhome() {
     echo "Changed directory to $target_dir"
 }
 EOF
+)
 
-echo "'devhome' added to $SHELL_RC"
-echo "Run the following command to activate it in your current session:"
-echo "  source $SHELL_RC"
+# append to .bashrc if not already present:
+if ! grep -q "devhome()" "$BASH_RC" 2>/dev/null; then
+    echo "$DEVHOME_FUNC" >> "$BASH_RC"
+    echo "Added 'devhome' to $BASH_RC"
+fi
+
+# append to .zshrc if not already present:
+if ! grep -q "devhome()" "$ZSH_RC" 2>/dev/null; then
+    echo "$DEVHOME_FUNC" >> "$ZSH_RC"
+    echo "Added 'devhome' to $ZSH_RC"
+fi
+
+# ensure .bash_profile sources .bashrc:
+if [ ! -f "$BASH_PROFILE" ] || ! grep -q 'source ~/.bashrc' "$BASH_PROFILE"; then
+    echo "" >> "$BASH_PROFILE"
+    echo "# source .bashrc for interactive shell config" >> "$BASH_PROFILE"
+    echo "[ -f ~/.bashrc ] && source ~/.bashrc" >> "$BASH_PROFILE"
+    echo "Updated $BASH_PROFILE to source .bashrc"
+fi
+
+echo
+echo "Run the appropriate command below to activate it in your current session:"
+echo "  source ~/.bashrc"
+echo "  source ~/.zshrc"

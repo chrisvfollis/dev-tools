@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # This script sets up a command (devhome) to easily cd into the base directory
@@ -9,6 +10,32 @@
 BASH_RC="$HOME/.bashrc"
 ZSH_RC="$HOME/.zshrc"
 BASH_PROFILE="$HOME/.bash_profile"
+
+update_shell_rc() {
+    local file="$1"
+    local func_body="$2"
+
+    # remove any existing devhome() block:
+    if grep -q "devhome()" "$file" 2>/dev/null; then
+        echo "Updating 'devhome' in $file"
+        # delete from the function definition to the closing '}' and remove
+        # any preceding "# Added by devhome setup" lines:
+        if sed --version >/dev/null 2>&1; then
+            # GNU sed
+            sed -i.bak '/^devhome()[[:space:]]*()/,/^}/d' "$file"
+            sed -i.bak '/# Added by devhome setup/d' "$file"
+        else
+            # BSD/macOS sed
+            sed -i '' '/^devhome()[[:space:]]*()/,/^}/d' "$file"
+            sed -i '' '/# Added by devhome setup/d' "$file"
+        fi
+    else
+        echo "Adding 'devhome' to $file"
+    fi
+
+    # add the newest version of devhome() to the file:
+    echo "$func_body" >> "$file"
+}
 
 # function body for devhome (as a variable to reuse):
 DEVHOME_FUNC=$(cat << 'EOF'
@@ -68,17 +95,8 @@ devhome() {
 EOF
 )
 
-# append to .bashrc if not already present:
-if ! grep -q "devhome()" "$BASH_RC" 2>/dev/null; then
-    echo "$DEVHOME_FUNC" >> "$BASH_RC"
-    echo "Added 'devhome' to $BASH_RC"
-fi
-
-# append to .zshrc if not already present:
-if ! grep -q "devhome()" "$ZSH_RC" 2>/dev/null; then
-    echo "$DEVHOME_FUNC" >> "$ZSH_RC"
-    echo "Added 'devhome' to $ZSH_RC"
-fi
+update_shell_rc "$BASH_RC" "$DEVHOME_FUNC"
+update_shell_rc "$ZSH_RC" "$DEVHOME_FUNC"
 
 # ensure .bash_profile sources .bashrc:
 if [ ! -f "$BASH_PROFILE" ] || ! grep -q 'source ~/.bashrc' "$BASH_PROFILE"; then
@@ -88,7 +106,6 @@ if [ ! -f "$BASH_PROFILE" ] || ! grep -q 'source ~/.bashrc' "$BASH_PROFILE"; the
     echo "Updated $BASH_PROFILE to source .bashrc"
 fi
 
-echo
 echo "Run the appropriate command below to activate it in your current session:"
 echo "  source ~/.bashrc"
 echo "  source ~/.zshrc"

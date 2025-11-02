@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # This script sets up a command (devhome) to easily cd into the base directory
@@ -97,6 +96,24 @@ EOF
 
 update_shell_rc "$BASH_RC" "$DEVHOME_FUNC"
 update_shell_rc "$ZSH_RC" "$DEVHOME_FUNC"
+
+read -r -p "Enter new DEV_PROJECTS_ROOT path (leave blank to keep existing): " new_root
+if [ -n "$new_root" ]; then
+    new_root="${new_root/#\~/$HOME}"
+    echo "Setting DEV_PROJECTS_ROOT to: $new_root"
+    for rc_file in "$BASH_RC" "$ZSH_RC"; do
+        if [ -f "$rc_file" ]; then
+            if sed --version >/dev/null 2>&1; then
+                sed -i.bak '/export DEV_PROJECTS_ROOT=/d' "$rc_file"
+            else
+                sed -i '' '/export DEV_PROJECTS_ROOT=/d' "$rc_file"
+            fi
+            echo "export DEV_PROJECTS_ROOT=\"$new_root\"" >> "$rc_file"
+        fi
+    done
+else
+    echo "Keeping existing DEV_PROJECTS_ROOT."
+fi
 
 # ensure .bash_profile sources .bashrc:
 if [ ! -f "$BASH_PROFILE" ] || ! grep -q 'source ~/.bashrc' "$BASH_PROFILE"; then
